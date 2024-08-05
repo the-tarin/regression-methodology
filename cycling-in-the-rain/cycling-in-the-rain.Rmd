@@ -6,7 +6,9 @@
 library(tidyverse)
 ```
 
-#### Read Data
+#### Data Manipulation
+
+##### Read Data
 
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 ac_2018 <- read_csv("data/aucklandcyclists2018.csv")
@@ -21,7 +23,7 @@ daily_rainfall <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022.csv")
 daily_rainfall_data_dict <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022-dictionary.csv")
 ```
 
-#### Standardise Date Format
+##### Standardise Date Format
 
 We need all date formats to be in YYYY-MM-DD, and as date objects.
 
@@ -44,7 +46,33 @@ ac_2022 <- ac_2022 %>%
   mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 ```
 
-#### Filter out important rainfall data
+##### Pivot data and Merge
+
+```{r}
+ac_2018 <- ac_2018 %>%
+  pivot_longer(cols = -Date, names_to = "cycle_recording_station", values_to = "cycle_count") %>%
+  drop_na(cycle_count)
+
+ac_2019 <- ac_2019 %>%
+  pivot_longer(cols = -Date, names_to = "cycle_recording_station", values_to = "cycle_count") %>%
+  drop_na(cycle_count)
+
+ac_2020 <- ac_2020 %>%
+  pivot_longer(cols = -Date, names_to = "cycle_recording_station", values_to = "cycle_count") %>%
+  drop_na(cycle_count)
+
+ac_2021 <- ac_2021 %>%
+  pivot_longer(cols = -Date, names_to = "cycle_recording_station", values_to = "cycle_count") %>%
+  drop_na(cycle_count)
+
+ac_2022 <- ac_2022 %>%
+  pivot_longer(cols = -Date, names_to = "cycle_recording_station", values_to = "cycle_count") %>%
+  drop_na(cycle_count)
+
+ac <- rbind(ac_2018, ac_2019, ac_2020, ac_2021, ac_2022)
+```
+
+##### Filter out important rainfall data
 
 Two of the rainfall monitoring locations are relevant to Auckland: "Auckland (Auckland)", close to the airport, and "Whangaparāoa (Auckland)".
 
@@ -54,7 +82,55 @@ We only need need rainfall data corresponding to cycling data between 2018-01-01
 daily_rainfall <- daily_rainfall %>%
   filter(site == "Auckland (Auckland)" | site == "Whangaparāoa (Auckland)") %>%
   mutate(Date = as.Date(date, format = "%Y-%m-%d")) %>%
+  mutate(-date) %>%
   filter(Date >= as.Date("2018-01-01"))
 ```
 
+##### Get Distances between Rainfall Stations and Cycle Recording Stations
+
+```{r}
+auckland_coordinates <- data_frame(-37.00813, 174.7887)
+colnames(auckland_coordinates) <- c("lat", "lon")
+whangaparaoa_coordinates <- data_frame(-36.606, 174.835)
+colnames(whangaparaoa_coordinates) <- c("lat", "lon")
+
+rainfall_stations_to_cycle_traffic_stations <- data_frame()
+
+```
+
+
+
+##### Calculate Average Rainfall by Relative Distances between Rainfall Stations and Cycle Recording Stations
+
+```{r}
+
+```
+
+Another approach would be to find the closest rainfall station and use those measurements for that day at that cycle recording station. However, I believe using the average between the two rainfall stations in Auckland weighted by their relative distances to the cycle recording stations is the best approach as it balances out bias created from having rainfall measurements taken at a different location to the cycle recording stations.
+
+##### Deal with NAs
+
+```{r}
+
+```
+
+##### Create Day of the Week
+
+```{r}
+
+```
+
+##### Create flag for Lockdown period
+
+```{r}
+
+```
+
+#### Exploratory Analysis
+
+##### Todo: Causal Diagram
+
+```{r}
+
+```
 
