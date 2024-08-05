@@ -1,7 +1,16 @@
 # STATS 763: Assignment 1: Cycling in the Rain
 ### Tarin Eccleston
 
-```{r}
-
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
+library(tidyverse)
 ```
 
+```{r}
+ac2018 <- read_csv("data/aucklandcyclists2018.csv")
+ac2019 <- read_csv("data/aucklandcyclists2019.csv")
+ac2020 <- read_csv("data/aucklandcyclists2020.csv")
+ac2021 <- read_csv("data/aucklandcyclists2021.csv")
+ac2022 <- read_csv("data/aucklandcyclists2022.csv")
+```
+
+Date formats need to be standardised.
