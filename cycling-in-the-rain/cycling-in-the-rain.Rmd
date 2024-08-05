@@ -21,25 +21,40 @@ daily_rainfall <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022.csv")
 daily_rainfall_data_dict <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022-dictionary.csv")
 ```
 
-#### Todo: Standardising Date Format
+#### Standardise Date Format
 
-We need all date formats to be in YYYY-MM-DD.
+We need all date formats to be in YYYY-MM-DD, and as date objects.
 
 ```{r}
+ac_2018 <- ac_2018 %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 
+ac_2019 <- ac_2019 %>%
+  mutate(Date = dmy(str_remove(Date, "^[A-Za-z]+,\\s*"))) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+ac_2020 <- ac_2020 %>%
+  mutate(Date = dmy(str_remove(Date, "^[A-Za-z]+\\s+"))) %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+ac_2021 <- ac_2021 %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
+
+ac_2022 <- ac_2022 %>%
+  mutate(Date = as.Date(Date, format = "%Y-%m-%d"))
 ```
 
 #### Filter out important rainfall data
 
 Two of the rainfall monitoring locations are relevant to Auckland: "Auckland (Auckland)", close to the airport, and "Whangaparāoa (Auckland)".
 
-We only need need rainfall data corresponding to cycling data between 2018-2022.
+We only need need rainfall data corresponding to cycling data between 2018-01-01 and 2022-12-31.
 
 ```{r}
 daily_rainfall <- daily_rainfall %>%
   filter(site == "Auckland (Auckland)" | site == "Whangaparāoa (Auckland)") %>%
-  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
-  filter(date >= as.Date("2018-01-01"))
+  mutate(Date = as.Date(date, format = "%Y-%m-%d")) %>%
+  filter(Date >= as.Date("2018-01-01"))
 ```
 
 
