@@ -1,16 +1,45 @@
 # STATS 763: Assignment 1: Cycling in the Rain
 ### Tarin Eccleston
+### 07/08/2024
 
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 library(tidyverse)
 ```
 
-```{r}
-ac2018 <- read_csv("data/aucklandcyclists2018.csv")
-ac2019 <- read_csv("data/aucklandcyclists2019.csv")
-ac2020 <- read_csv("data/aucklandcyclists2020.csv")
-ac2021 <- read_csv("data/aucklandcyclists2021.csv")
-ac2022 <- read_csv("data/aucklandcyclists2022.csv")
+#### Read Data
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
+ac_2018 <- read_csv("data/aucklandcyclists2018.csv")
+ac_2019 <- read_csv("data/aucklandcyclists2019.csv")
+ac_2020 <- read_csv("data/aucklandcyclists2020.csv")
+ac_2021 <- read_csv("data/aucklandcyclists2021.csv")
+ac_2022 <- read_csv("data/aucklandcyclists2022.csv")
+
+monitoring_locations <- read.csv("data/monitoringlocations.csv")
+
+daily_rainfall <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022.csv")
+daily_rainfall_data_dict <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022-dictionary.csv")
 ```
 
-Date formats need to be standardised.
+#### Todo: Standardising Date Format
+
+We need all date formats to be in YYYY-MM-DD.
+
+```{r}
+
+```
+
+#### Filter out important rainfall data
+
+Two of the rainfall monitoring locations are relevant to Auckland: "Auckland (Auckland)", close to the airport, and "Whangaparāoa (Auckland)".
+
+We only need need rainfall data corresponding to cycling data between 2018-2022.
+
+```{r}
+daily_rainfall <- daily_rainfall %>%
+  filter(site == "Auckland (Auckland)" | site == "Whangaparāoa (Auckland)") %>%
+  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
+  filter(date >= as.Date("2018-01-01"))
+```
+
+
