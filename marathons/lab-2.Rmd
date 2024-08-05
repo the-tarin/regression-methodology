@@ -1,0 +1,81 @@
+# STATS 763: Lab 2: Marathons
+### Tarin Eccleston
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+load("../data/marathon.RData")
+run %>% str
+```
+
+### Q1)
+#### What is the mean of the logarithm time for each course?
+
+```{r}
+run_course_model <- lm(log(totalMinutes) ~ course - 1, data = run)
+summary(run_course_model)
+```
+
+NB: The coefficients are the mean estimates.
+
+### Q2)
+#### Why isn’t this necessarily a good indication of relative course difficulty?
+
+Essentially the runner is a confounder, which will effect the course chosen and time as well.
+
+Because you may have disproportionately better runners on more difficult courses or worse runners on easier courses. In the first case if we use log mean time as an indication of difficulty, the course would appear easier than it is as better runners tend to be faster. The opposite effect is true when we have worse runners on easier courses.
+
+### Q3)
+#### Make a smaller data set containing just the runners with at least three races, and fit a linear regression model with indicator variables for course and runner. Use this model to get estimates of relative course difficulty, and explain the advantage of these estimates over the ones in Q1.
+
+```{r}
+run_three_races <- run %>%
+  filter(count >= 3)
+```
+
+```{r}
+run_course_runner_model <- lm(log(totalMinutes) ~ course + shorthash - 1, data = run_three_races)
+model_summary <- summary(run_course_runner_model)
+filtered_coefficients <- model_summary$coefficients[!grepl("shorthash", rownames(model_summary$coefficients)), ]
+custom_summary <- model_summary
+custom_summary$coefficients <- filtered_coefficients
+custom_summary
+```
+
+Adjusting for runners is a better explanation for relative difficulty between courses as we suspected that the runner is a confounder which will have an effect on the course chosen and running time.
+
+### Q4)
+#### Assuming that your estimates of course difficulty are exact, is there evidence from the data that easier courses are more – or less – popular? What main factor would plausibly explain course popularity, assuming such a factor could be measured?
+
+Are easier courses more popular?
+
+```{r}
+course_coefficients <- coef(run_course_runner_model)[grepl("course", names(coef(run_course_runner_model)))]
+names(course_coefficients) <- sub("course", "", names(course_coefficients))
+
+course_popularity <- run %>%
+  group_by(course) %>%
+  summarise(num_runners = n_distinct(shorthash))
+
+course_summary <- cbind(course_popularity, course_coefficients)
+course_summary
+```
+
+There doesn't seem to be a clear relationship between how easy the course is and it's popularity.
+
+Factors that would explain course popularity would probably be due to course accessibility, as well as course reputation and organisation, and entry fees. Factors in the data which could also explain popularity are event date, as some courses might be held in more convenient times of the year for a range of backgrounds compared to other courses.
+
+### Q5)
+#### A numeric matrix in R uses 8 bytes of memory for each entry. If we tried to use the full data set, how much memory would the design matrix 𝑋
+ take up?
+ 
+```{r}
+k_course <- 12
+k_runners <- 2189
+memory_X <- 32262 * ((k_course - 1) + (k_runners - 1)) * 8
+memory_X
+```
+ 
+ 567553104 bytes

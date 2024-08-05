@@ -1,0 +1,102 @@
+# STATS 763: Lab 3: Flights
+### Tarin Eccleston
+
+```{r results='hide', warning=FALSE,message=FALSE,error=FALSE}
+library(tidyverse)
+library(nycflights13)
+```
+
+```{r}
+flights <- nycflights13::flights
+flights %>% str
+```
+
+### Q1)
+#### Fit a logistic regression for the probability of being late, as a function of month, distance flown, departure delay and airline. Describe what you find. 
+
+```{r}
+flights <- flights %>%
+  mutate(late = ifelse(arr_delay > 15, 1, 0))
+```
+
+```{r}
+flights <- flights %>%
+  mutate(month = as.factor(month)) %>%
+  mutate(carrier = as.factor(carrier))
+
+flights %>% str
+```
+
+
+```{r results='hide', warning=FALSE,message=FALSE,error=FALSE}
+late_vs_month_distance_delay_airline_model <- glm(late ~ month + distance + dep_delay + carrier, family = binomial(link = "logit"), data = flights)
+```
+
+
+```{r}
+summary(late_vs_month_distance_delay_airline_model)
+```
+
+Removed intercept for easier interpretation. We adjusted for airlines, month and distance. 
+
+Looking at the coefficients, it seems like there is a slight positive relationship between the distance flown and arriving late. There is a stronger positive relationship between departure delay and arriving late. Longer departure delays (in minutes) are more likely to cause arrival delays.
+
+### Q2)
+#### Fit a model with log link and binomial error to the same variables.  You will need to supply starting values for beta using the start= argument; you can use a vector with -1 as the first element and zero for the other elements. [if p<-ncol(model.matrix(question1model)), then start=c(-1, rep(0,p-1))] Describe what you find. (Note: Things will not go as expected.)
+
+```{r results='hide', warning=FALSE,message=FALSE,error=FALSE}
+p<-ncol(model.matrix(late_vs_month_distance_delay_airline_model))
+start_values <- c(-1, rep(0, p - 1))
+late_vs_month_distance_delay_airline_model_log_link <- glm(late ~ month + distance + dep_delay + carrier, family = binomial(link = "log"), data = flights, start = start_values, control = list(maxit=30))
+```
+
+
+```{r}
+summary(late_vs_month_distance_delay_airline_model_log_link)
+```
+
+The betas estimates for distance and departure time can be interpreted as the multiplicative effect on the mean of the probability of arriving late for a one-unit increase in distance or departure time.
+
+Why is logistic regression so easily fitted, and why is the log relative risk regression not? The algorithm did not converge, possibly due to incorrect starting values, or model is not correct. I also suspect it's because distance and departure delay are on vastly different scales OR that there are few observations with very large departure delays. You can see on the plot below that the probabilities don't scale between 0-1 for the log link function.
+
+We can use the intercept and coefficient for dep delay to visualise what is happening...
+
+```{r results='hide', warning=FALSE,message=FALSE,error=FALSE}
+plot <- ggplot(data = flights, mapping = aes(x = dep_delay, y = late)) +
+  geom_jitter(alpha = 0.2, width = 0.3, height = 0.05) + 
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = FALSE, aes(color = "Logistic Regression")) +
+  labs(title = "Departure Delay Time vs Probability of Arriving Late",
+       x = "Departure Delay Time (minutes)",
+       y = "Probability of Arriving Late") +
+  theme_minimal()
+
+exp_data <- data.frame(
+  dep_delay = seq(min(flights$dep_delay, na.rm = TRUE), 
+                  max(flights$dep_delay, na.rm = TRUE), 
+                  length.out = 100),
+  exp_value = -1.037e+00 + exp(8.994e-04 * seq(min(flights$dep_delay, na.rm = TRUE), 
+                                  max(flights$dep_delay, na.rm = TRUE), 
+                                  length.out = 100))
+)
+
+plot <- plot + 
+  geom_line(data = exp_data, aes(x = dep_delay, y = exp_value, color = "Exponential Curve"), size = 1) +
+  scale_color_manual(values = c("Logit Link" = "blue", "Log Link" = "red")) +
+  labs(color = "Fitted Values") +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+plot
+```
+
+### Q3)
+#### Describe which observations have fitted values at or near 1.
+
+##### Logit Model
+
+Looking at the fitted values plot for the logit link, flights with a departure delay greater than 50 minutes are almost certainly going to be late (arriving 15 minutes later than scheduled). This makes sense as we see fewer observations which arrive on time after a greater than 50 minutes departure delay time.
+
+##### Log Model
+
+Will not be able to assess this for log model for certain as the model didn't converge. The fitted values using for the log link look quite unexpected and incorrect.

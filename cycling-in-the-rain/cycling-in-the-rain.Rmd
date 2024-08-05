@@ -1,0 +1,7 @@
+# STATS 763: Assignment 1: Cycling in the Rain
+### Tarin Eccleston
+
+```{r}
+
+```
+
