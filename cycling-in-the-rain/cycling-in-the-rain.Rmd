@@ -5,6 +5,7 @@
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 library(tidyverse)
 library(geosphere)
+library(lubridate)
 ```
 
 #### Data Manipulation
@@ -15,8 +16,8 @@ Based on the brief, we would like these columns in out dataframe for modelling:
 - weighted_average_rainfall
 - cycle_recording_sites
 - lockdown
-- year
 - season
+- year
 - day_of_week
 - date
 
@@ -153,18 +154,14 @@ ac <- ac %>%
 
 Another approach would be to find the closest rainfall station and use those measurements for that day at that cycle recording site. However, I believe using the weighted average between the two rainfall stations in Auckland weighted by their relative distances to the cycle recording sites is the best approach as it balances out bias created from having rainfall measurements taken at a vastly different location to the cycle recording sites.
 
-##### Find Day of the Week
+##### Find Day of the Week, Month and Year
 
 ```{r}
-
+ac2 <- ac %>%
+  mutate(day_of_week = weekdays(date)) %>%
+  mutate(month = month(date)) %>%
+  mutate(year = year(date))
 ```
-
-##### Find Season
-
-```{r}
-
-```
-
 
 ##### Create flag for Lockdown period
 
