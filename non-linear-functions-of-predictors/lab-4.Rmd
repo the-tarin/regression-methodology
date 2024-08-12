@@ -6,6 +6,7 @@
 library(tidyverse)
 library(stringr)
 library(lubridate)
+library(splines)
 ```
 
 ### Quadratics
@@ -18,7 +19,7 @@ y <- 4*exp(-x)+rnorm(100)
 y_x = data.frame(cbind(x, y_expected, y))
 
 y_model_x <- lm(y ~ x, y_x)
-y_model_x_squared <- lm(y ~ x + I(x^2), y_x) # need to revise this
+y_model_x_squared <- lm(y ~ x + I(x^2), y_x)
 
 y_x$y_fitted_x <- predict(y_model_x, y_x)
 y_x$y_fitted_x_squared <- predict(y_model_x_squared, y_x)
@@ -66,5 +67,50 @@ x_{\text{turning point}} = -\frac{-3.1744}{2 \times 0.7014} = \frac{3.1744}{1.40
 \]
 
 ### Cubic Splines
-#### Q2)
+#### Q2) Plot the data from question 1, the true functional relationship, and the fitted values for these two regression models. What is the interpretation of the coefficients in each model? Do any of the coefficients directly tell us whether there is positive slope in some region?
+
+```{r}
+y_model_x_linear_spline_1 <- lm(y ~ pmin(x,2) + pmax(pmin(x,3),2) + pmax(x,3), data = y_x)
+y_model_x_linear_spline_2 <- lm(y ~ x + pmax(x,2) + pmax(x,3), data = y_x)
+
+y_x$y_fitted_x_linear_spline_1 <- predict(y_model_x_linear_spline_1, y_x)
+y_x$y_fitted_x_linear_spline_2 <- predict(y_model_x_linear_spline_2, y_x)
+```
+
+```{r}
+ggplot(y_x, aes(x = x)) +
+  geom_point(aes(y = y), color = "darkgrey", alpha = 0.5) +
+  geom_line(aes(y = y_expected, color = "Expected"), size = 1) +
+  geom_line(aes(y = y_fitted_x_linear_spline_1, color = "Fitted Linear Spline 1"), size = 1) +
+  geom_line(aes(y = y_fitted_x_linear_spline_2, color = "Fitted Linear Spline 2"), size = 1) +
+  labs(title = "True Curve vs Fitted Curves",
+       x = "x",
+       y = "y",
+       color = "Legend") +
+  scale_color_manual(values = c("Expected" = "black", 
+                                "Fitted Linear Spline 1" = "purple", 
+                                "Fitted Linear Spline 2" = "orange")) +
+  theme_minimal()
+```
+
+Both fits for linear spline 1 and 2 overlap eachother. The first model (linear spline 1) creates a more complex piece-wise function of x with different segments that behave differently, while the second model (linear spline 2) uses x directly along with additional terms that modify its influence based on specific thresholds. Both fits don't capture the inherent exponential relationship in the data.
+
+They are different ways of creating the same function, however their coefficients offer different interpretations.
+
+```{r}
+summary(y_model_x_linear_spline_1)
+```
+
+The first model (linear spline 1) segments x into different capped and floored regions, which reflects a piece-wise linear relationship with y; the slope changes at specific values of x (2 and 3). For a particular piece-wise region, the slope is determined by the coefficient value for that piece-wise region, while the intercept is determined by the intercept coefficient, plus all other coefficients for other piece-wise regions.
+
+```{r}
+summary(y_model_x_linear_spline_2)
+```
+
+The second model (linear spline 2) assumes a direct relationship between x and y. The slope is always the coefficient of x plus pmax(x,2) and/or pmax(x,3) when x crosses into their respective piece-wise regions. The intercepts for a piece-wise region are the sum of the intercept coefficient and the coefficients for all piece-wise regions that are within ranges that are currently greater than x.
+
+### Q3)
+#### In the children’s FEV data, fit a regression of fev on smoking, gender, and age, using a cubic spline with three intervals for age. What is the estimated smoking effect?
+
+
 
