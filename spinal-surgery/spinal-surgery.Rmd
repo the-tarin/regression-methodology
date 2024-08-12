@@ -1,0 +1,41 @@
+## STATS 763: Assignment 2: Spinal surgery and readmission
+#### Tarin Eccleston
+#### 23/08/2024
+
+We are interested in the causal effect of the duration of the surgery (Surgery time) on the probability of being readmitted within 30 days. The variable Re-admissions indicates the number of re-admissions within this period.
+
+Assume that confounding is reasonably well alleviated by adjusting for Ethnicity, Trauma, Surgical complexity and Charlson Index (co-morbidity index) in models relating Surgery time to readmission within 30 days.
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+library(tidyverse)
+library(stringr)
+library(lubridate)
+```
+
+### Causal Diagram
+
+INSERT CAUSAL DIAGRAM HERE
+
+### Data Manipulation
+
+Based on the brief, we would like these columns in our dataframe for modelling:
+
+- Re-admission
+- Surgery time
+- Ethnicity
+- Trauma
+- Surgical complexity
+- Charlson Index (co-morbidity index)
+
+#### Read Data
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
+spinal_surg <- read.csv("data/spinal_surgery.csv")
+```
+
+
+### Exploratory Analysis
+
+### Modelling
+
+### Discussion

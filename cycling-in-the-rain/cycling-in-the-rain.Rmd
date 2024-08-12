@@ -1,14 +1,16 @@
-# STATS 763: Assignment 1: Cycling in the Rain
-### Tarin Eccleston
-### 07/08/2024
+## STATS 763: Assignment 1: Cycling in the Rain
+#### Tarin Eccleston
+#### 07/08/2024
 
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
 library(tidyverse)
 library(geosphere)
+library(stringr)
 library(lubridate)
+library(MASS)
 ```
 
-#### Data Manipulation
+### Data Manipulation
 
 Based on the brief, we would like these columns in our dataframe for modelling:
 
@@ -21,14 +23,14 @@ Based on the brief, we would like these columns in our dataframe for modelling:
 - month
 - day_of_week
 
-##### Read Data
+#### Read Data
 
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
-auckland_cycle_2018 <- read_csv("data/aucklandcyclists2018.csv")
-auckland_cycle_2019 <- read_csv("data/aucklandcyclists2019.csv")
-auckland_cycle_2020 <- read_csv("data/aucklandcyclists2020.csv")
-auckland_cycle_2021 <- read_csv("data/aucklandcyclists2021.csv")
-auckland_cycle_2022 <- read_csv("data/aucklandcyclists2022.csv")
+auckland_cycle_2018 <- read.csv("data/aucklandcyclists2018.csv")
+auckland_cycle_2019 <- read.csv("data/aucklandcyclists2019.csv")
+auckland_cycle_2020 <- read.csv("data/aucklandcyclists2020.csv")
+auckland_cycle_2021 <- read.csv("data/aucklandcyclists2021.csv")
+auckland_cycle_2022 <- read.csv("data/aucklandcyclists2022.csv")
 
 monitoring_locations <- read.csv("data/monitoringlocations.csv")
 
@@ -36,41 +38,41 @@ daily_rainfall <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022.csv")
 daily_rainfall_data_dict <- read.csv("data/daily-rainfall-at-30-sites-1960-to-2022-dictionary.csv")
 ```
 
-##### Standardise Date Format
+#### Standardise Date Format
 
 We need all date formats to be in YYYY-MM-DD, and as date objects.
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_cycle_2018 <- auckland_cycle_2018 %>%
   mutate(date = as.Date(Date, format = "%Y-%m-%d")) %>%
-  select(-Date)
+  dplyr::select(-Date)
 
 auckland_cycle_2019 <- auckland_cycle_2019 %>%
   mutate(date = dmy(str_remove(Date, "^[A-Za-z]+,\\s*"))) %>%
-  mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
-  select(-Date)
+  mutate(date = as.Date(date, format = "%d-%m-%Y")) %>%
+  dplyr::select(-Date)
 
 auckland_cycle_2020 <- auckland_cycle_2020 %>%
   mutate(date = dmy(str_remove(Date, "^[A-Za-z]+\\s+"))) %>%
   mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
-  select(-Date)
+  dplyr::select(-Date)
 
 auckland_cycle_2021 <- auckland_cycle_2021 %>%
   mutate(date = as.Date(Date, format = "%Y-%m-%d")) %>%
-  select(-Date)
+  dplyr::select(-Date)
 
 auckland_cycle_2022 <- auckland_cycle_2022 %>%
   mutate(date = as.Date(Date, format = "%Y-%m-%d")) %>%
-  select(-Date)
+  dplyr::select(-Date)
 ```
 
-##### Pivot data and Merge
+#### Pivot Data and Merge
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_cycle_2018 <- auckland_cycle_2018 %>%
   pivot_longer(cols = -date, names_to = "cycle_recording_site", values_to = "cycle_count") %>%
-  drop_na(cycle_count)
-  round(cycle_count)
+  drop_na(cycle_count) %>%
+  mutate(cycle_count = round(cycle_count))
 
 auckland_cycle_2019 <- auckland_cycle_2019 %>%
   pivot_longer(cols = -date, names_to = "cycle_recording_site", values_to = "cycle_count") %>%
@@ -91,20 +93,21 @@ auckland_cycle_2022 <- auckland_cycle_2022 %>%
 auckland_cycle <- rbind(auckland_cycle_2018, auckland_cycle_2019, auckland_cycle_2020, auckland_cycle_2021, auckland_cycle_2022)
 
 auckland_cycle <- auckland_cycle %>%
-  mutate(cycle_count = round(cycle_count))
+  mutate(cycle_count = round(cycle_count)) %>%
+  mutate(cycle_recording_site = as.factor(cycle_recording_site))
 ```
 
 We drop all NAs. It would be difficult to impute, and we already have quite a bit of data. Though the missing data could have an effect on biasing our estimates.
 
 I'm unsure why we have non-integer counts for cycle counts so I rounded all cycle counds.
 
-##### Filter for important rainfall data
+#### Filter for Important Rainfall Data
 
 Two of the rainfall monitoring locations are relevant to Auckland: "Auckland (Auckland)", close to the airport, and "Whangaparāoa (Auckland)".
 
 We only need need rainfall data corresponding to cycling data between 2018-01-01 and 2022-12-31.
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 daily_rainfall_auckland <- daily_rainfall %>%
   filter(site == "Auckland (Auckland)") %>%
   mutate(date = as.Date(date, format = "%Y-%m-%d")) %>%
@@ -116,9 +119,9 @@ daily_rainfall_whangaparaoa <- daily_rainfall %>%
   filter(date >= as.Date("2018-01-01"))
 ```
 
-##### Get Distances between Rainfall Stations and Cycle Recording Sites
+#### Calculate Distances between Rainfall Stations and Cycle Recording Sites
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_rainfall_station_coordinates <- data_frame(
   lat = -37.00813,
   lon = 174.7887
@@ -142,35 +145,36 @@ rainfall_stations_to_cycle_recording_sites <- rainfall_stations_to_cycle_recordi
   ))
 ```
 
-##### Calculate Weighted Average Rainfall by Relative Distances between Rainfall Stations and Cycle Recording Sites
+#### Calculate Weighted Average Rainfall by Relative Distances between Rainfall Stations and Cycle Recording Sites
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_cycle <- auckland_cycle %>%
   left_join(rainfall_stations_to_cycle_recording_sites, by = "cycle_recording_site") %>%
-  left_join(daily_rainfall_auckland %>% select(date, rainfall) %>% rename(rainfall_auckland = rainfall), by = "date") %>%
-  left_join(daily_rainfall_whangaparaoa %>% select(date, rainfall) %>% rename(rainfall_whangaparaoa = rainfall), by = "date") %>%
+  left_join(daily_rainfall_auckland %>% dplyr::select(date, rainfall) %>% dplyr::rename(rainfall_auckland = rainfall), by = "date") %>%
+  left_join(daily_rainfall_whangaparaoa %>% dplyr::select(date, rainfall) %>% dplyr::rename(rainfall_whangaparaoa = rainfall), by = "date") %>%
   mutate(weighted_average_rainfall = (rainfall_auckland / distance_to_auckland + rainfall_whangaparaoa / distance_to_whangaparaoa) /
                         (1 / distance_to_auckland + 1 / distance_to_whangaparaoa)) %>%
-  select(-c(distance_to_auckland, distance_to_whangaparaoa, rainfall_auckland, rainfall_whangaparaoa))
+  dplyr::select(-c(distance_to_auckland, distance_to_whangaparaoa, rainfall_auckland, rainfall_whangaparaoa))
 ```
 
 Another approach would be to find the closest rainfall station and use those measurements for that day at that cycle recording site. However, I believe using the weighted average between the two rainfall stations in Auckland weighted by their relative distances to the cycle recording sites is the best approach as it balances out bias created from having rainfall measurements taken at a vastly different location to the cycle recording sites.
 
-##### Find Day of the Week, Month and Year
+#### Find Day of the Week, Month, and Year
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_cycle <- auckland_cycle %>%
   mutate(day_of_week = as.factor(weekdays(date))) %>%
-  mutate(day_of_week = factor(day_of_week, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
+  mutate(day_of_week = factor(day_of_week, 
+                              levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
   mutate(month = factor(month(date), labels = month.name)) %>%
   mutate(year = as.factor(year(date)))
 ```
 
 These covariates should be sufficient to account for seasonality (in addition to covid_status).
 
-##### Set Covid Status
+#### Set COVID Status
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
 auckland_cycle <- auckland_cycle %>%
   mutate(covid_status = case_when(
     date >= as.Date("2018-01-01") & date <= as.Date("2020-03-24") ~ "pre-covid",
@@ -190,27 +194,27 @@ auckland_cycle <- auckland_cycle %>%
     date >= as.Date("2021-12-02") & date <= as.Date("2021-12-29") ~ "traffic-red-lockdown",
     date >= as.Date("2021-12-30") & date <= as.Date("2022-09-11") ~ "traffic-orange-lockdown",
     date >= as.Date("2022-09-12") & date <= as.Date("2022-12-31") ~ "post-covid",
-  ))
+  )) %>%
+  mutate(covid_status = as.factor(covid_status))
 ```
 
 I obtained lockdown and restriction dates from policycommons.ac.nz.
 
-#### Exploratory Analysis
+### Exploratory Analysis
 
-##### Causal Diagram
+#### Causal DAG
 
-```{r}
-knitr::include_graphics("data/cycling_causal_dag.jpeg")
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+knitr::include_graphics("data/cycle_count_causal_DAG.jpeg")
 ```
 
-- Question: day_of_week, covid_status accounts for some variation in cycle_count right?
-- Question: are mediators bad?
+I believe there aren't any relevant colliders or mediators for rainfall on cycle count.
 
-##### Bivariate Plots
+#### Bivariate Plots
 
 These plots show direct relationships between the concerning covariate with direct effects on cycle_count and confounders of rainfall, supporting our causal diagram.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = year, y = cycle_count)) +
   geom_bar(stat = "identity") +
   labs(title = "Total Cycle Count vs Year",
@@ -221,9 +225,9 @@ ggplot(auckland_cycle, aes(x = year, y = cycle_count)) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-There was noticeably more cycle counts in 2019. There appears to be an overall downward trend on cycling counts across the years. People often cycle for leisure or transport (usually to and from work). Since Covid-19, there has been a rise of hydrid/remote work, which in combination with lockdowns, could explain the downward trend in cycle counts. We include year in our model.
+There was noticeably more cycle counts in 2019. There appears to be an overall downward trend on cycling counts across the years. People often cycle for leisure or transport (usually to and from work). Since COVID-19, there has been a rise of hybrid/remote work, which in combination with lockdowns, could explain the downward trend in cycle counts. We include year in our model. We include year in our model as this should have direct effects on cycle counts and a confounder of rainfall on cycle counts.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = month, y = cycle_count)) +
   geom_bar(stat = "identity") +
   labs(title = "Total Cycle Count vs Month",
@@ -234,27 +238,33 @@ ggplot(auckland_cycle, aes(x = month, y = cycle_count)) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-There appears to be seasonality - the colder months (June, July, and August) appear to have less cycle total counts compared to warmer months (December, January, February, March). There are unusually low total cycle counts in December, this could be due to the Christmas Holidays. Note: mobility restrictions during lockdowns in 2020-2021 which could effect seasonality. We include month in our model.
+There appears to be seasonality - the colder months (June, July, and August) appear to have less cycle total counts compared to warmer months (December, January, February, March). There are unusually low total cycle counts in December, this could be due to the Christmas Holidays. We include month in our model as this should have direct effects on cycle counts and a confounder of rainfall on cycle counts.
 
 It would be interesting to see the trend and seasonality across all dates. Although dates will not be used in our model.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+auckland_cycle_sum_cycle_date <- auckland_cycle %>%
+  group_by(date) %>%
+  summarize(total_cycle_count = sum(cycle_count, na.rm = TRUE))
+
 date_breaks <- seq(from = as.Date("2015-01-01"), to = as.Date("2022-12-01"), by = "1 year")
 
-ggplot(auckland_cycle, aes(x = date, y = cycle_count)) +
-  geom_bar(stat = "identity") +
+ggplot(auckland_cycle_sum_cycle_date, aes(x = date, y = total_cycle_count)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +  # Use stat = "identity" for bar heights based on data
   labs(title = "Total Cycle Count vs Date",
        x = "Date",
        y = "Total Cycle Count") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 0, hjust = 0, vjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0, vjust = 0.5)) +  # Adjust angle for better readability
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE)) +
   scale_x_date(date_labels = "%Y-%m", breaks = date_breaks)
 ```
 
-The plot of total cycle counts vs date supports the seasonality seen between month and total cycle count, and downward trend seen between year and total cycle count.
+The plot of total cycle counts vs date supports the seasonality seen between month and total cycle count, and downward trend seen between year and total cycle count. 
 
-```{r}
+However these trends and seasonality are disrupted during the COVID-19 lockdowns, hence why we need to adjust for the COVID status covariate when fitting our model.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = day_of_week, y = cycle_count)) +
   geom_bar(stat = "identity") +
   labs(title = "Total Cycle Count vs Day of Week",
@@ -265,23 +275,42 @@ ggplot(auckland_cycle, aes(x = day_of_week, y = cycle_count)) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-There appears to be seasonality - the middle of the weekday (Tuesday and Wednesday) have the highest total cycle counts, whereas the weekend (Saturday and Sunday) have the lowest total cycle counts. This supports the assumption that people often cycle for leisure or transport (usually to and from work), the middle of the weekday being when people are most likely working. We include day of week in our model.
+There appears to be seasonality - the middle of the weekday (Tuesday and Wednesday) has the highest total cycle counts, whereas the weekend (Saturday and Sunday) have the lowest total cycle counts. This supports the assumption that people often cycle for leisure or transport (usually to and from work), the middle of the weekday being when people are most likely working. We include day of week in our model as it has direct effects on cycle count.
 
-```{r}
-ggplot(auckland_cycle, aes(x = covid_status, y = cycle_count)) +
-  geom_jitter(width = 0.2, height = 0, alpha = 0.6) +
-  labs(title = "Cycle Count vs Covid Status",
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+auckland_cycle_average_covid_status <- auckland_cycle %>%
+  group_by(covid_status) %>%
+  summarize(avg_cycle_count = mean(cycle_count, na.rm = TRUE))
+
+desired_order <- c(
+  "pre-covid",
+  "level-4-lockdown",
+  "level-3-lockdown",
+  "level-2.5-lockdown",
+  "level-2-lockdown",
+  "level-1-lockdown",
+  "inter-lockdown",
+  "traffic-red-lockdown",
+  "traffic-orange-lockdown",
+  "post-covid"
+)
+
+ggplot(auckland_cycle_average_covid_status, aes(x = covid_status, y = avg_cycle_count)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Average Cycle Count vs Covid Status",
        x = "Covid Status",
-       y = "Cycle Count") +
+       y = "Average Cycle Count") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_x_discrete(limits = desired_order) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-- Uh what is happening... might need to reverse engineer this shit.
-- Def colour code between lockdown periods
+I averaged the cycle counts across all dates and locations within a given COVID status, this is because each status has different periods. Note that averages can be biased due to other seasonal and trend effects. 
 
-```{r}
+There appears to be a higher average cycle count before the COVID-19 pandemic, which decreases significantly starting from the first lockdown in March 2020. The "post-COVID" period also shows a noticeably lower average cycle count. The primary focus of this analysis is to model the relationship between rainfall and cycle counts. Although predicting and explaining cyclist behavior during the COVID-19 period is challenging, we adjust for COVID status in our model to reduce noise as it directly impacts cycle counts. However, our primary attention is not on the inference of the COVID status covariate itself but rather on understanding the relationship between rainfall and cycle counts.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = cycle_recording_site, y = cycle_count)) +
   geom_bar(stat = "identity") +
   labs(title = "Cycle Count vs Cycle Recording Site",
@@ -292,9 +321,9 @@ ggplot(auckland_cycle, aes(x = cycle_recording_site, y = cycle_count)) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-There is non-uniformity between total cycle count vs cycle recording site. Certain cycle recording sites such as NW Cycleway Kingslandm, Quay St. Eco Display Classic, and Quay St. Spark Arena have more cycle counts across the dataset compared to other cycle recording sites such as Matakana. There seems be an effect of rural and urbanised recording sites on total cycle count, with urbanised sites being more popular. We include cycle recording site in our model.
+There is non-uniformity between total cycle count vs cycle recording site. Certain cycle recording sites such as NW Cycleway Kingslandm, Quay St. Eco Display Classic, and Quay St. Spark Arena have more cycle counts across the dataset compared to other cycle recording sites such as Matakana. There seems be an effect of rural and urbanised recording sites on total cycle count, with urbanised sites being more popular. We include cycle recording site in our model as it has direct effects on cycle count.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = year, y = weighted_average_rainfall)) +
   geom_jitter(width = 0.4, height = 0, alpha = 0.6, color = "lightblue") +
   labs(title = "Weighted Average Rainfall vs Year",
@@ -305,14 +334,14 @@ ggplot(auckland_cycle, aes(x = year, y = weighted_average_rainfall)) +
   scale_y_continuous(labels = function(x) format(x, big.mark = ",", scientific = FALSE))
 ```
 
-There appears to be some seasonality of year on rainfall, this could be due to El Niño-Southern Oscillation (ENSO). We include year in our model as a confounder for rainfall on cycle count, and don't need to include ENSO index as year should cover the effects of ENSO.
+There appears to be some seasonality of year on rainfall, this could be due to El Niño-Southern Oscillation (ENSO). We include year in our model as a confounder for rainfall on cycle count, and don't need to include ENSO index as year covariate should cover the effects of ENSO.
 
 Note: The bands are caused by taking rainfall measurements on the same day but at different sites with similar amounts of weighted average rainfall.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 season_colors <- c("Summer" = "red", "Autumn" = "#FFD700", "Winter" = "#1E90FF", "Spring" = "#32CD32")
 
-auckland_cycle <- auckland_cycle %>%
+auckland_cycle_seasons <- auckland_cycle %>%
   mutate(season = case_when(
     month %in% c("December", "January", "February") ~ "Summer",
     month %in% c("March", "April", "May") ~ "Autumn",
@@ -320,7 +349,7 @@ auckland_cycle <- auckland_cycle %>%
     month %in% c("September", "October", "November") ~ "Spring"
   ))
 
-ggplot(auckland_cycle, aes(x = month, y = weighted_average_rainfall, color = season)) +
+ggplot(auckland_cycle_seasons, aes(x = month, y = weighted_average_rainfall, color = season)) +
   geom_jitter(width = 0.4, height = 0, alpha = 0.6) +
   labs(title = "Weighted Average Rainfall vs Month",
        x = "Month",
@@ -334,7 +363,7 @@ ggplot(auckland_cycle, aes(x = month, y = weighted_average_rainfall, color = sea
 
 There appears to be seasonality of month on rainfall - winter months (June, July, and August) having the highest rainfall compared to other months. January, a Summer month, has the lowest rainfall compared to other months. We include month in as a confounder for rainfall on cycle count.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = cycle_recording_site, y = weighted_average_rainfall)) +
   geom_jitter(width = 0.4, height = 0, alpha = 0.6, color = "lightblue") +
   labs(title = "Weighted Average Rainfall vs Cycle Recording Site",
@@ -349,9 +378,9 @@ There is uniformity between rainfall vs cycle recording site. However some sites
 
 The uniformity could be due to not having local rainfall data which accounts for micro-climates (i.e. Matakana and Karangahape Rd. should have different micro-climates). We are weighting the average between measurements from only two rainfall stations based on distance, hence why we would expect there to be less variation between rainfall across all cycle recording sites.
 
-Despite the limitation with our data, we still stand to include cycle recording site in our causal diagram as a confounder for rainfall on cycle count and having direct effects on cycle count. Cycle recording site is still included in our model, however it's estimates probably tell us more about the direct effects of cycle recording site on cycle count.
+Despite the limitation with our data, we still stand to include cycle recording site in our causal diagram as a confounder for rainfall on cycle count. Cycle recording site is still included in our model, however it's estimates probably tell us more about the direct effects of cycle recording site on cycle count.
 
-```{r}
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
   geom_point(alpha = 0.6, color = "grey") +
   labs(title = "Cycle Count vs Weighted Average Rainfall",
@@ -360,17 +389,17 @@ ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
   theme_minimal()
 ```
 
-```{r fig.width=15,fig.height=15}
+```{r fig.width=15,fig.height=15, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
   geom_point(alpha = 0.6, color = "grey") +
   labs(title = "Cycle Count vs Weighted Average Rainfall by Cycle Recording Site",
        x = "Weighted Average Rainfall (mm)",
        y = "Cycle Count") +
   theme(
-    strip.text = element_text(size = 10), # Adjust facet label text size
-    axis.text.x = element_text(size = 12), # Adjust x-axis text size
-    axis.text.y = element_text(size = 12), # Adjust y-axis text size
-    plot.title = element_text(size = 18) # Adjust plot title size
+    strip.text = element_text(size = 10), 
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 18)
   ) +
   facet_wrap(~ cycle_recording_site, ncol = 4, scales = "free_y") +
   theme_minimal()
@@ -380,62 +409,162 @@ A clear negative trend between rainfall and cycle count can be seen across all s
 
 There seems to be an inflated amount of 0 mm rainfall recordings. 
 
-##### Modelling
+### Modelling
 
-Use a poisson model as a first step, with first order covariates and no interactions.
+#### Poisson Model
 
-- Make sure year is a factor
-
-```{r}
-auckland_cycle %>% str
-```
-
+Since we are dealing with counts, we use a Poisson model as a first step, with first order covariates and no interactions.
 
 ```{r}
-cycle_count_poisson_model <- glm(cycle_count ~ weighted_average_rainfall + day_of_week + month + year + cycle_recording_site + covid_status - 1, family = poisson(), data = auckland_cycle)
+cycle_count_poisson_model <- glm(cycle_count ~ weighted_average_rainfall + day_of_week + month + year + cycle_recording_site + covid_status - 1, family = poisson(link = "log"), data = auckland_cycle)
 ```
 
-potentially look at neg bin
-
-round cycle counts as some are non ints
-
-only care about est for rainfall
-
-plot the residuals, code pot in bens notes
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+model_summary <- summary(cycle_count_poisson_model)
+pattern <- "day_of_week|month|cycle|covid"
+filtered_coefficients <- model_summary$coefficients[!grepl(pattern, rownames(model_summary$coefficients)), ]
+cycle_count_poisson_model_summary <- model_summary
+cycle_count_poisson_model_summary$coefficients <- filtered_coefficients
+```
 
 ```{r}
-summary(cycle_count_poisson_model)
+cycle_count_poisson_model_summary
 ```
 
-#### Discussion
+The residual deviance appears a lot larger than the degrees of freedom, this suggests over-dispersion. The next step would be to fit a negative binomial model with a dispersion parameter.
 
-NOTE: only show important outputs / code
+The average effects of weighted average rainfall are: for every one-unit (1 mm) increase of rainfall, the expected count of cyclists decreases by a factor of \( e^{-0.02525} \approx 0.975 \), or about \( 2.5\% \) less.
 
-##### Interactions
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+predicted_count <- predict(cycle_count_poisson_model, newdata = auckland_cycle, type = "response")
 
-I did not include interactions, and stuck a model with many covariates but simple order. An extension of this investigation would be to explore interaction effects between certain covariates and their effect on cycle count.
+ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
+  geom_point(alpha = 0.6, color = "grey") +
+  geom_line(aes(y = predicted_count, color = "Fitted Line"), size = 1) +
+  labs(title = "Cycle Count vs Weighted Average Rainfall with Fit",
+       x = "Weighted Average Rainfall (mm)",
+       y = "Cycle Count") +
+  scale_color_manual(name = "Legend", values = c("Fitted Line" = "blue")) +
+  theme_minimal()
+```
 
-##### Seasonality
+```{r fig.width=15,fig.height=15, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+predicted_count <- predict(cycle_count_poisson_model, newdata = auckland_cycle, type = "response")
 
-Although I included the ENSO index in the causal diagram and is a confounder for rainfall, I decided not to investigate this further in the model, as I believe the El Nino / El Nina effects are explained by the year covariate.
+ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
+  geom_point(alpha = 0.6, color = "grey", aes(color = "Observed")) +
+  geom_line(aes(y = predicted_count, color = "Fitted"), size = 1) +
+  labs(title = "Cycle Count vs Weighted Average Rainfall by Cycle Recording Site with Fit",
+       x = "Weighted Average Rainfall (mm)",
+       y = "Cycle Count",
+       color = "Legend") +
+  theme(
+    strip.text = element_text(size = 10), 
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 18)
+  ) +
+  facet_wrap(~ cycle_recording_site, ncol = 4, scales = "free_y") +
+  theme_minimal() +
+  scale_color_manual(values = c("Observed" = "grey", "Fitted" = "blue"))
+```
 
-##### Lockdowns
+The fit line looks quite noisy, however we can see that the line follows the trend quite closely with cycle counts decreasing with increasing rainfall measurement.
 
-##### Rainfall
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+plot(cycle_count_poisson_model, 1)
+```
 
-- We should get more detailed micro-climate measures. Coefficients for sites probably explain the direct effect of site to cycle count. 
+The variance of the scatter is not constant, it increases as the fitted values increase, suggesting that there is over-dispersion. A solution is use a negative binomial model.
 
-##### Other Weather Covariates (Not Included in Analysis)
+#### Negative Binomial
 
-Rainfall is a good indicator, of weather conditions favorable for cycling, however we should also consider temperate and wind speed in our model, that may serve to decrease the residual variance. However I'm not well versed in climate science, and adjusting for these other covariates might introduce mediator in our model.
+```{r}
+cycle_count_negbin_model <- glm.nb(cycle_count ~ weighted_average_rainfall + day_of_week + month + year + cycle_recording_site + covid_status - 1, data = auckland_cycle)
+```
 
-##### Weekend Effect
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+model_summary <- summary(cycle_count_negbin_model)
+pattern <- "day_of_week|month|cycle|covid"
+filtered_coefficients <- model_summary$coefficients[!grepl(pattern, rownames(model_summary$coefficients)), ]
+cycle_count_negbin_model_summary <- model_summary
+cycle_count_negbin_model_summary$coefficients <- filtered_coefficients
+```
 
-Based on my research, it seems like there is a more noticeable effect on rainfall between weekdays and weekends in very large cities. I've included this as a confounder of rainfall in my causal DAG. The weekend effect should be sufficiently covered in the day_of_week covariate. 
+```{r}
+cycle_count_negbin_model_summary
+```
 
-TODO: plot similar to what Matt did to show weekend effect
+The coefficient for weighted_average_rainfall has increased slightly.
 
-##### ENSO Index
+The residual deviance appears a lot smaller now. The dispersion parameter has been found to be 4.1.
 
-I decided not to use the ENSO index as I believe this is already explained by the year covariate.
+The average effects of weighted average rainfall are: for every one-unit (1 mm) increase of rainfall, the expected count of cyclists decreases by a factor of \( e^{-0.0209893} \approx 0.979 \), or about \( 2.2\% \) less.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+predicted_cycle <- predict(cycle_count_negbin_model, newdata = auckland_cycle, type = "response")
+
+ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
+  geom_point(alpha = 0.6, color = "grey") +
+  geom_line(aes(y = predicted_cycle), color = "blue", size = 1) +
+  labs(title = "Cycle Count vs Weighted Average Rainfall",
+       x = "Weighted Average Rainfall (mm)",
+       y = "Cycle Count") +
+  theme_minimal()
+```
+
+```{r fig.width=15,fig.height=15, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+predicted_count <- predict(cycle_count_negbin_model, newdata = auckland_cycle, type = "response")
+
+ggplot(auckland_cycle, aes(x = weighted_average_rainfall, y = cycle_count)) +
+  geom_point(alpha = 0.6, color = "grey", aes(color = "Observed")) +
+  geom_line(aes(y = predicted_count, color = "Fitted"), size = 1) +
+  labs(title = "Cycle Count vs Weighted Average Rainfall by Cycle Recording Site",
+       x = "Weighted Average Rainfall (mm)",
+       y = "Cycle Count",
+       color = "Legend") +
+  theme(
+    strip.text = element_text(size = 10), 
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 18)
+  ) +
+  facet_wrap(~ cycle_recording_site, ncol = 4, scales = "free_y") +
+  theme_minimal() +
+  scale_color_manual(values = c("Observed" = "grey", "Fitted" = "blue"))
+```
+
+Fitted lines appear almost identical to the Poisson model, however slightly less noise, and preserving the same trend.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+plot(cycle_count_negbin_model, 1)
+```
+
+The residuals have less of a trend and appear much smaller for the negative binomial model compared to the Poisson model. This is probably the final model of choice.
+
+### Discussion
+
+#### Interactions
+
+I did not include interactions, and used a first order model with all the covariates of concern. An extension of this investigation would be to explore interaction effects between certain covariates and their effect on cycle count.
+
+#### Zero-inflated Rainfall Measurements
+
+There appears be zero-inflated rainfall measurements, although it would be tempting to use a zero-inflated Poisson, that is only if the dependent variable is zero-inflated. In this case we could fit a compound Poisson model and account for over-dispersion like in our negative binomial model of choice.
+
+#### Seasonality
+
+Although I included the ENSO index in the causal diagram and is a confounder for rainfall, I decided not to investigate this further in the model, as I believe the El Nino / El Nina effects are already explained by the year covariate.
+
+#### Special Days
+
+Public holidays such as Easter, Christmas, and New Years to name a few, are an important covariate which has direct effects on the cycle count. This is a covariate I would model as an extension of this analysis, that may serve to decrease noise, decreasing residual of rainfall on cycle counts.
+
+#### Other Weather Covariates (Not Included in Analysis)
+
+Rainfall is a good indicator of weather conditions favorable for cycling, however we should also consider temperate and wind speed in our model, that may serve to decrease the residual of rainfall on cycle counts. However I'm not well versed in climate science, and adjusting for these other covariates might introduce mediator in our model which could be a problem.
+
+#### Weekend Effect
+
+Based on my research, it appears that rainfall effects are more pronounced between weekdays and weekends in very large metropolitan areas. I chose not to include this covariate in the Causal DAG and model, as I suspect the weekend effect may be negligible in a smaller city like Auckland. Additionally, our rainfall data is not the most comprehensive, which might render this consideration less impactful. Even if there were a slight effect, it should be adequately accounted for by the day of week covariate.
 

@@ -1,0 +1,40 @@
+## STATS 763: Lab 4: Nonlinear functions of predictors
+#### Tarin Eccleston
+#### 10/08/2024
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+library(tidyverse)
+library(stringr)
+library(lubridate)
+```
+
+### Quadratics
+#### Q1) Simulate x <- rexp(100) and y <- 4*exp(-x)+rnorm(100). Plot y against x and overlay the true form of 𝐸[𝑌|𝑋=𝑥] and the fitted value from a linear model with x and x^2 as predictors. How would you describe the regression results to avoid giving the misleading impression that the relationship changes direction?
+
+```{r}
+x <- rexp(100)
+y_expected <- 4*exp(-x)
+y <- 4*exp(-x)+rnorm(100)
+y_x = data.frame(cbind(x, y_expected, y))
+
+y_model_x <- lm(y ~ x, y_x)
+y_model_x_squared <- lm(y ~ x + I(x^2), y_x) # need to revise this
+
+y_x$y_fitted_x <- predict(y_model_x, y_x)
+y_x$y_fitted_x_squared <- predict(y_model_x_squared, y_x)
+```
+
+```{r}
+ggplot(y_x, aes(x = x)) +
+  geom_point(aes(y = y), color = "blue", alpha = 0.5) +
+  geom_line(aes(y = y_expected), color = "green", size = 1) +
+  geom_line(aes(y = y_fitted_x), color = "red", size = 1) +          
+  geom_line(aes(y = y_fitted_x_squared), color = "purple", size = 1) + 
+  labs(title = "True Curve vs Fitted Curves",
+       x = "x",
+       y = "y") +
+  theme_minimal()
+```
+
+
+Support for ___ to ___. 

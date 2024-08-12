@@ -1,0 +1,13 @@
+
+### Full Example
+
+Here’s the complete setup:
+
+#### styles.css
+
+```css
+.centered-plot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
