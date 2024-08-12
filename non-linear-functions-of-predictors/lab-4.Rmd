@@ -112,5 +112,23 @@ The second model (linear spline 2) assumes a direct relationship between x and y
 ### Q3)
 #### In the children’s FEV data, fit a regression of fev on smoking, gender, and age, using a cubic spline with three intervals for age. What is the estimated smoking effect?
 
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE}
+FEV <- read.table("../data/fev.txt", header = TRUE)
+FEV <- FEV %>%
+  mutate(sex = as.factor(sex)) %>%
+  mutate(smoke = as.factor(smoke))
+
+fev_model_cublic_splines <- lm(fev ~ smoke + sex + ns(age, 3), data = FEV)
+```
+
+```{r}
+summary(fev_model_cublic_splines)
+```
+
+Assuming smoker = 2, and non-smoker = 1.
+
+Based on the summary, smokers have on average a 0.12 liter increase in FEV compared to non-smokers when we adjust for sex, and age (using cubic splines with interval = 3).
+
+
 
 
