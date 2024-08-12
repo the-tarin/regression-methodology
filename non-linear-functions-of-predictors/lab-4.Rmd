@@ -26,15 +26,45 @@ y_x$y_fitted_x_squared <- predict(y_model_x_squared, y_x)
 
 ```{r}
 ggplot(y_x, aes(x = x)) +
-  geom_point(aes(y = y), color = "blue", alpha = 0.5) +
-  geom_line(aes(y = y_expected), color = "green", size = 1) +
-  geom_line(aes(y = y_fitted_x), color = "red", size = 1) +          
-  geom_line(aes(y = y_fitted_x_squared), color = "purple", size = 1) + 
+  geom_point(aes(y = y), color = "darkgrey", alpha = 0.5) +
+  geom_line(aes(y = y_expected, color = "Expected"), size = 1) +
+  geom_line(aes(y = y_fitted_x, color = "Fitted x"), size = 1) +
+  geom_line(aes(y = y_fitted_x_squared, color = "Fitted x^2"), size = 1) +
   labs(title = "True Curve vs Fitted Curves",
        x = "x",
-       y = "y") +
+       y = "y",
+       color = "Legend") +
+  scale_color_manual(values = c("Expected" = "black", 
+                                "Fitted x" = "red", 
+                                "Fitted x^2" = "blue")) +
   theme_minimal()
 ```
 
+For the model fitted with x, the fitted values show that it fits the overall trend in data, but not the local exponential trend well. This is expected as the true trend is exponential and plateaus after around y = 0 at around x = 1, whereas the fit with model using x continues to grow negative.
 
-Support for ___ to ___. 
+The polynomial (model fitted with x^2) will try to fit all the data, and follows distinct behavior (going down and up). This will give over-estimates for larger values of x as the true trend is exponential. We can say that the polynomial provides sufficient support from x = 0 to x = turning point.
+
+The turning point of a quadratic function \( y = ax^2 + bx + c \) can be found using the formula:
+
+\[
+x_{\text{turning point}} = -\frac{b}{2a}
+\]
+
+```{r}
+summary(y_model_x_squared)
+```
+
+Given the coefficients for x and x^2 from the summary:
+
+- \( a = 0.7014 \) (coefficient of \( x^2 \))
+- \( b = -3.1744 \) (coefficient of \( x \))
+
+The turning point is calculated as:
+
+\[
+x_{\text{turning point}} = -\frac{-3.1744}{2 \times 0.7014} = \frac{3.1744}{1.4028} \approx 2.263
+\]
+
+### Cubic Splines
+#### Q2)
+
