@@ -6,6 +6,8 @@ We are interested in the causal effect of the duration of the surgery (Surgery t
 
 Assume that confounding is reasonably well alleviated by adjusting for Ethnicity, Trauma, Surgical complexity and Charlson Index (co-morbidity index) in models relating Surgery time to readmission within 30 days.
 
+Clean the data, limiting yourself to the variables being considered.
+
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
 library(tidyverse)
 library(stringr)
@@ -20,9 +22,10 @@ INSERT CAUSAL DIAGRAM HERE
 
 Based on the brief, we would like these columns in our dataframe for modelling:
 
-- Re-admission
-- Surgery time
-- Ethnicity
+- Re-admission (outcome)
+- Surgery time (exposure)
+___________________________ (confounders)
+- Ethnicity 
 - Trauma
 - Surgical complexity
 - Charlson Index (co-morbidity index)
@@ -33,9 +36,41 @@ Based on the brief, we would like these columns in our dataframe for modelling:
 spinal_surg <- read.csv("data/spinal_surgery.csv")
 ```
 
+#### Remove Missing Values
+
+Remove observations with missing values for the exposure, outcome or confounders, but provide a clear account of the missing values in these variables.
+
+```{r}
+remove_na_from_cols <- c("Readmissions", "Surgery.time", "Ethnicity", "Trauma", "Surgical.complexity", "Charlson.Index")
+spinal_surg_remove_na <- spinal_surg %>%
+  filter(across(all_of(remove_na_from_cols), ~ !is.na(.)))
+
+removed_observations_IDs <- spinal_surg %>%
+  filter(!ID %in% spinal_surg_remove_na$ID) %>%
+  select(ID)
+
+spinal_surg <- spinal_surg_remove_na
+
+removed_observations_IDs
+```
+
+#### Rescale Surgery time to hours instead of days.
+
+
+
 
 ### Exploratory Analysis
 
+Carry out appropriate exploratory analysis of the data, informed by Part 3. below. Report concisely on salient features, using small tables, graphs and complete sentences.
+
 ### Modelling
+
+Fit appropriate generalised linear models to estimate the relative risk, risk difference and odds ratio of readmission within 30 days due to an increase in surgery time of 1 hour. Within the assumptions regarding confounding mentioned above, you must determine what are appropriate generalised linear models.
+
+Is there evidence that any one of these estimates differs by Trauma level?
+
+Consider the relative risk model from Part 3. Fit the same model under a non-linear least squares working model (normal with log link), under a working Poisson model (Poisson family with log link) and under a gamma model with log link. In all three cases (i.e. including the original binomial model with log link), compare the standard error obtained for the log-relative risk of Surgery time from the original model to the standard error obtained from “HC2” type sandwich variance estimator using vcovHC from the sandwich package. Comment on differences and similarities.
+
+Compute the sandwich standard error for the log-relative risk of Surgery time from the binomial model directly using only standard matrix operators and fitted quantities derived from the model. Note: It is expected to differ from the one obtained from the “HC2” sandwich variance estimator.
 
 ### Discussion
