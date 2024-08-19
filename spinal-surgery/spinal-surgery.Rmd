@@ -10,8 +10,9 @@ Clean the data, limiting yourself to the variables being considered.
 
 ```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
 library(tidyverse)
-library(stringr)
 library(lubridate)
+library(stringr)
+library(MASS)
 ```
 
 ### Causal Diagram
@@ -41,15 +42,15 @@ spinal_surg <- read.csv("data/spinal_surgery.csv")
 Remove observations with missing values for the exposure, outcome or confounders, but provide a clear account of the missing values in these variables.
 
 ```{r}
-remove_na_from_cols <- c("Readmissions", "Surgery.time", "Ethnicity", "Trauma", "Surgical.complexity", "Charlson.Index", "Age")
+remove_na_from_cols <- c("Readmissions", "Surgery.time", "Ethnicity", "Trauma", "Surgical.complexity", "Charlson.Index")
 spinal_surg_remove_na <- spinal_surg %>%
   filter(across(all_of(remove_na_from_cols), ~ !is.na(.)))
 
 removed_observations_IDs <- spinal_surg %>%
   filter(!ID %in% spinal_surg_remove_na$ID) %>%
-  select(ID)
+  dplyr::select(ID)
 
-spinal_surg <- spinal_surg_remove_na
+spinal_surg <- spinal_surg_remove_invalid
 
 removed_observations_IDs
 ```
@@ -63,26 +64,94 @@ spinal_surg <- spinal_surg %>%
   mutate(Surgery.time = as.numeric(sub(":", ".", Surgery.time)) %/% 1 + as.numeric(sub(":", ".", Surgery.time)) %% 1 / 60 * 100)
 ```
 
+#### Create Binary Variable for Readmission
+
+Since readmissions outcome is a count of number of readmission in 30 days, we are only interested if there are ANY readmissions, so we transform the data.
+
+```{r}
+spinal_surg <- spinal_surg %>%
+  mutate(Readmissions.bin = ifelse(Readmissions >= 1, 1, 0))
+```
+
+#### Make appropriate covariates factors
+
+```{r}
+spinal_surg <- spinal_surg %>%
+  mutate(Charlson.Index = as.factor(Charlson.Index)) %>%
+  mutate(Surgical.complexity = as.factor(Surgical.complexity)) %>%
+  mutate(Ethnicity = as.factor(Ethnicity))
+```
+
 
 #### General Cleaning
 
 ```{r}
-- remove redundant cols
-- 
+spinal_surg <- spinal_surg %>%
+  dplyr::select(-X, -X.1) %>%
+  filter(Surgical.complexity == "Low" | Surgical.complexity == "Intermediate" | Surgical.complexity == "High")
 ```
 
+Remove observations with invalid surgical complexity values.
 
 ### Exploratory Analysis
 
 Carry out appropriate exploratory analysis of the data, informed by Part 3. below. Report concisely on salient features, using small tables, graphs and complete sentences.
 
+#### Causal Diagram
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+knitr::include_graphics("data/readmissions_causal_DAG.jpeg")
+```
+
+#### Bivariate / Faceted Plots 
+
+```{r}
+Readmission vs surgery time faceted by Trauma
+```
+
+```{r}
+Readmission vs surgery time faceted by complexity
+```
+
+```{r}
+Readmission vs Charlson Index
+```
+
 ### Modelling
+#### Initial Modelling
 
 Fit appropriate generalised linear models to estimate the relative risk, risk difference and odds ratio of readmission within 30 days due to an increase in surgery time of 1 hour. Within the assumptions regarding confounding mentioned above, you must determine what are appropriate generalised linear models.
 
-Is there evidence that any one of these estimates differs by Trauma level?
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4984606/
+
+##### Logistic Regression
+
+```{r}
+readmissions_logistic_model <- glm(Readmissions.bin ~ Surgery.time + Surgical.complexity + Trauma + Charlson.Index + Ethnicity - 1, data = spinal_surg, family = binomial())
+summary(readmissions_logistic_model)
+```
+
+For every unit hour increase in surgery time, there is a e^19674 = 1.217 -> 21.7% odds ratio increase of a readmission within 30 days after surgery. TODO: check correct interpretation
+
+##### Relative Risk Regression
+
+```{r}
+p <- ncol(model.matrix(readmissions_logistic_model))
+readmissions_relative_risk_model <- glm(Readmissions.bin ~ Surgery.time + Surgical.complexity + Trauma + Charlson.Index + Ethnicity - 1, data = spinal_surg, family = binomial(log), start = c(-1, rep(0, p - 1)))
+summary(readmissions_relative_risk_model)
+```
+
+For every unit hour increase in surgery time, there is a e^0.13635 = 1.14 -> 14% risk increase of a readmission within 30 days after surgery.
+
+TODO: how do we calculate the risk difference???
+
+#### Is there evidence that any one of these estimates differs by Trauma level?
+
+#### Other Relative Risk Regression Estimators
 
 Consider the relative risk model from Part 3. Fit the same model under a non-linear least squares working model (normal with log link), under a working Poisson model (Poisson family with log link) and under a gamma model with log link. In all three cases (i.e. including the original binomial model with log link), compare the standard error obtained for the log-relative risk of Surgery time from the original model to the standard error obtained from “HC2” type sandwich variance estimator using vcovHC from the sandwich package. Comment on differences and similarities.
+
+#### Standard Matrix Operators
 
 Compute the sandwich standard error for the log-relative risk of Surgery time from the binomial model directly using only standard matrix operators and fitted quantities derived from the model. Note: It is expected to differ from the one obtained from the “HC2” sandwich variance estimator.
 
