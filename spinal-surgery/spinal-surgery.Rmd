@@ -41,7 +41,7 @@ spinal_surg <- read.csv("data/spinal_surgery.csv")
 Remove observations with missing values for the exposure, outcome or confounders, but provide a clear account of the missing values in these variables.
 
 ```{r}
-remove_na_from_cols <- c("Readmissions", "Surgery.time", "Ethnicity", "Trauma", "Surgical.complexity", "Charlson.Index")
+remove_na_from_cols <- c("Readmissions", "Surgery.time", "Ethnicity", "Trauma", "Surgical.complexity", "Charlson.Index", "Age")
 spinal_surg_remove_na <- spinal_surg %>%
   filter(across(all_of(remove_na_from_cols), ~ !is.na(.)))
 
@@ -54,9 +54,22 @@ spinal_surg <- spinal_surg_remove_na
 removed_observations_IDs
 ```
 
+The IDs for removed observations due to presence of NAs in outcomes, exposure, and covariates are shown.
+
 #### Rescale Surgery time to hours instead of days.
 
+```{r}
+spinal_surg <- spinal_surg %>%
+  mutate(Surgery.time = as.numeric(sub(":", ".", Surgery.time)) %/% 1 + as.numeric(sub(":", ".", Surgery.time)) %% 1 / 60 * 100)
+```
 
+
+#### General Cleaning
+
+```{r}
+- remove redundant cols
+- 
+```
 
 
 ### Exploratory Analysis
