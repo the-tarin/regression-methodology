@@ -18,7 +18,7 @@ library(sandwich)
 
 Based on the brief, we would like these columns in our dataframe for modelling:
 
-- Re-admitted (outcome) (binary outcome)
+- Readmitted (outcome) (binary outcome)
 - Surgery time (exposure)
 ___________________________ (confounders)
 - Ethnicity 
@@ -32,11 +32,9 @@ spinal_surg <- read_csv("data/spinal_surgery.csv")
 
 #### Remove Missing Values
 
-Only select covariates of interest including the ID. Rename 
+Only select covariates of interest including the ID. Rename all covariates for styling.
 
-Remove observations with missing values (NA) for the exposure, outcome or confounders, but provide a clear account of the missing values in these variables.
-
-The IDs of the missing values are shown below.
+Remove observations with missing values (NA) for the exposure, outcome or confounders. The IDs of the missing values are shown below.
 
 ```{r}
 spinal_surg <- spinal_surg %>%
@@ -63,7 +61,7 @@ Only 17 out of the 631 observations have missing values, this is quite insignifi
 
 #### Rescale Surgery Time
 
-The surgery time is originally in HH:MM format, we r-scaled to the number of hours (numeric), as this will provide a sensible interpretation for the coefficient for surgery time. For example, 07:30 would be re-scaled to 7.5 hours.
+The surgery time is originally in HH:MM format, we re-scaled to the number of hours (numeric), as this will provide a sensible interpretation for the coefficient for surgery time. For example, 07:30 would be re-scaled to 7.5 hours.
 
 ```{r}
 spinal_surg <- spinal_surg %>%
@@ -83,6 +81,8 @@ spinal_surg <- spinal_surg %>%
 
 We decided to go back and simplify the Charlson Index by making it a factor with 2 levels; the first level taking up what was originally an index of 0-6 and the second level taking up 7-12. The second level being more severe than the first.
 
+The intuition behind this was that there was a lack of data for higher Charlson Indices, and the scores are somwhat "arbitrary". For example a score of 6 could mean 1 moderately severe disease, or 2-3 minor diseases. It was easier to interpret Charlson Index as either having minor or severe disease.
+
 ```{r}
 spinal_surg <- spinal_surg %>%
   mutate(Charlson_Index = ifelse(Charlson_Index >= 0 & Charlson_Index <= 5, "0-5", "6-12"))
@@ -98,8 +98,6 @@ spinal_surg <- spinal_surg %>%
   mutate(Surgical_Complexity = ifelse(Surgical_Complexity == "Intermeate", "Intermediate", Surgical_Complexity))
 ```
 
-Remove observations with invalid surgical complexity values. Only 8 observations were removed, with their IDs have been provided. No other covariates appear to have invalid values.
-
 #### Make appropriate covariates factors
 
 Surgical Complexity is binary, ethnicity is a factor and our now transformed Charlson Index are a factor. 
@@ -114,7 +112,7 @@ spinal_surg <- spinal_surg %>%
 
 ### Exploratory Analysis
 
-Carry out appropriate exploratory analysis of the data, informed by Part 3. below. Report concisely on salient features, using small tables, graphs and complete sentences.
+Carry out appropriate exploratory analysis of the data, informed by Part 3, below. Report concisely on salient features, using small tables, graphs and complete sentences.
 
 #### Causal Diagram
 
@@ -214,7 +212,7 @@ For every unit hour increase in surgery time, there is a e^0.15553 = 1.168 -> 16
 
 I used binomial with identity link, as this is the model for the risk difference. We wouldn't need to apply any transforms to x*beta for interpreting our beta coefficients. I supplied initial conditions for the algorithm, however it wasn't as straightforward as the relative risk regression initial conditions, so I tried a variety of initial values and maxits. TODO: revise the last sentence.
 
-```{r warning=FALSE}
+```{r}
 readmissions_risk_difference_model <- glm(Readmitted ~ Surgery_Time + Surgical_Complexity + Trauma + Charlson_Index + Ethnicity - 1, data = spinal_surg, family = binomial(link = "identity"), start = c(0, rep(0.1, p - 1)), control = list(maxit=100000))
 readmissions_risk_difference_model_summary <- summary(readmissions_risk_difference_model)
 readmissions_risk_difference_model_summary
@@ -222,7 +220,7 @@ readmissions_risk_difference_model_summary
 
 For every unit hour increase in surgery time, there is a 0.015378 = 1.54% risk difference of re-admission to no re-admission within 30 days after surgery. TODO: check whether this interpretation is correct.
 
-- TODO: Talk about warnings
+- TODO: Talk about warnings, algorithm converged, 
 
 #### Is there evidence that any one of these estimates differs by Trauma level?
 
@@ -303,17 +301,18 @@ readmissions_relative_gamma_working_model_summary
 First compute the standard errors for Surgery Time using vCovHC from the sandwich package.
 
 ```{r}
-standard_error_comparison <- rbind(c(tidy(readmissions_relative_risk_model)$estimate[1], tidy(readmissions_relative_risk_model)$std.error[1]), c(tidy(readmissions_relative_risk_non_linear_least_squares_model)$estimate[1], sqrt(diag(vcovHC(readmissions_relative_risk_non_linear_least_squares_model, type = "HC2")))[1]), c(tidy(readmissions_relative_risk_poisson_working_model)$estimate[1], sqrt(diag(vcovHC(readmissions_relative_risk_poisson_working_model, type = "HC2")))[1]), c(tidy(readmissions_relative_gamma_working_model)$estimate[1], sqrt(diag(vcovHC(readmissions_relative_gamma_working_model, type = "HC2")))[1]))
+standard_error_comparison <- rbind(c(tidy(readmissions_relative_risk_model)$std.error[1], sqrt(diag(vcovHC(readmissions_relative_risk_model, type = "HC2")))[1]), c(tidy(readmissions_relative_risk_non_linear_least_squares_model)$std.error[1], sqrt(diag(vcovHC(readmissions_relative_risk_non_linear_least_squares_model, type = "HC2")))[1]), c(tidy(readmissions_relative_risk_poisson_working_model)$std.error[1], sqrt(diag(vcovHC(readmissions_relative_risk_poisson_working_model, type = "HC2")))[1]), c(tidy(readmissions_relative_gamma_working_model)$std.error[1], sqrt(diag(vcovHC(readmissions_relative_gamma_working_model, type = "HC2")))[1]))
 
 rownames(standard_error_comparison) <- rbind("Relative Risk Model", "Non-Linear Least Squares Working Model", "Poisson Working Model", "Gamma Working Model")
-colnames(standard_error_comparison) <- c("Estimates", "Std. Error")
+colnames(standard_error_comparison) <- c("Model Standard Errors", "Sandwich Estimator Standard Errors")
 standard_error_comparison
 ```
 
-We have (slight) underestimates our standard error (and variance) for the relative risk model. 
+We have (slight) underestimates for our standard error (and variance) for the Relative Risk Model using model standard error, there is a slight increase of standard error when we use the sandwich estimator. The standard error from the Poisson Working Model (model and sandwich estimator) have the smallest estimates.
 
-- Non-linear least squares working model has the highest std
-- Poisson/Gamma (similar) seems to have the smallest.
+The Non-Linear Least Squares Working Model has the highest change in standard error between model calculation and sandwich estimator calculations.
+
+Gamma Model seems to have the smallest change in standard error between model calculations and sandwich estimator calculations.
 
 #### Standard Matrix Operators
 
@@ -328,7 +327,7 @@ Compute the sandwich standard error for the log-relative risk of Surgery time fr
 - What I attempted / didn't
 - Convergence vs non convergence
 - Lack of data for some factors
-
+- Warnings are a process of the optimisation algorithm, not an issue. 
 - Trauma surgery, they might look after you more, less likely to get readmitted. Those without obvious trauma might get treated with less priority, hence readmitted
 
 
