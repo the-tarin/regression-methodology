@@ -1,0 +1,142 @@
+## STATS 763: Assignment 3: Is is worth throwing fish back?
+#### Tarin Eccleston
+#### 25/09/2024
+
+The file `hopper.csv` comes from a study of the survival of under-sized fish that are caught by beam trawler commercial fishing boats and returned to the sea.
+
+These fish live on or near the sea bottom.  The study explored effects of observed environmental conditions at sea and of the randomly-assigned use of a water-filled storage hopper on the survival of the fish.
+
+During trips with commercial trawlers, whole catches were unloaded from the  net  into either water-filled hoppers or conventional dry hoppers before sorting for size and species. For both hopper types, undersized fish were sampled from the sorting belt. After assessment of vitality status, sampled fish were housed in dedicated survival monitoring tanks on board. Upon return in the harbour fish were transferred to the laboratory to monitor their survival for up to 18 days post-catch. 
+
+The researchers recorded sea conditions such as wave height and water temperature, or obtained them from public data sources.   
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+library(tidyverse)
+library(broom)
+library(dagitty)
+set.seed(123)
+```
+
+### Data Manipulation
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+hopper <- read.csv("data/hopper.csv")
+hopper <- hopper %>%
+  rename(
+    Wave_height = Wave_height..cm.,
+    Depth = Depth..m.,
+    Processing_time = Processing.time..min.,
+    Haul_duration = Haul_duration..min.,
+    Length = Length..cm.
+  ) %>%
+  mutate(Hopper = ifelse(Hopper == "Conventional", "Dry", Hopper))
+```
+
+### Exploratory Analysis
+
+#### Causal Diagram
+
+```{r}
+```
+
+#### Plots
+
+```{r}
+
+```
+
+
+### 1. Which variables are potential confounders for the effect of hopper type on fish survival?
+
+For a covariate to be a confounder of `Hopper` on fish survival (`Dead`), the cause (covariate) has to happen before the effect on hopper type. Since the study explored effects of the randomly-assigned use of water-filled storage hoppers or dry storage hoppers on the survival of the fish, there should be no confounders by design.
+
+However, if we explored the effect of `Trip ID` on `Hopper`, the table shows that some trips have only dry hoppers. This could be due to the vessel not being compatible to have both a dry and water-filled hoppers. Certain trips will also have direct effects on fish survival probability. `Trip_ID` is therefore a confounder.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+table(hopper$Trip_ID, hopper$Hopper)
+```
+
+### 2. Which variables are potential mediators of the effect of hopper type on fish survival?
+
+For a covariate to be a mediator of `Hopper` on fish survival (`Dead`), `Hopper` needs to cause an effect on the covariate which in turn causes an effect on fish survival. Here are plausible mediators:
+
+#### Vitality_class
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(hopper, aes(fill=Hopper, x=Vitality_class)) + 
+    geom_bar(position="fill") +
+    scale_fill_manual(values = c("Dry" = "#D9A800", "Water" = "#007BFF")) +
+    scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+    labs(x = "Vitality Class", y = "Percentage", title = "Percentage Water-filled and Dry Hopper vs Vitality Class", fill = "Hopper Type") +
+    theme_minimal()
+```
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(hopper, aes(fill=factor(Dead, levels = c(0, 1), labels = c("Survived", "Dead")), x=Vitality_class)) + 
+    geom_bar(position="fill") +
+    scale_fill_manual(values = c("Survived" = "#28A745", "Dead" = "#DC3545")) + 
+    scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+    labs(x = "Vitality Class", y = "Percentage", title = "Percentage Survived and Dead Fish vs Vitality Class", fill = "Condition") +
+    theme_minimal()
+```
+
+The stacked barplots show whether the fish is put in a dry or in water-filled hopper should have an effect on it's vitality grade. The given vitality class also has an effect on the fish survival.
+
+- Processing_time: the time it takes for the fish from on boarding to storage tanks will differ if they were housed in dry or water-filled hoppers, a longer processing time could result in a lower fish survival.
+
+### 3. Estimate the effect of hopper type on survival.
+
+We make effort to exclude `Vitality_class` and `Processing_time`to explain the causal effects `Hopper` on fish survival as they are potential mediators for `Hopper` on fish survival. We don't need to include environmental conditions, haul duration or fish length as based on the causal diagram, these are XX by adding in `Trip_ID` into the model.
+
+```{r}
+fish_survival_model <- glm(Dead ~ Hopper + Trip_ID, family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_model)
+```
+
+```{r}
+est <- tidy(fish_survival_model)$estimate[2]
+variance <- tidy(fish_survival_model)$std.error[2]^2
+variance_delta = exp(2*est) * variance^2
+
+ci_lower <- exp(est) - 1.96 * sqrt(variance_delta)
+ci_upper <- exp(est) + 1.96 * sqrt(variance_delta)
+
+ci <- c(ci_lower, exp(est), ci_upper)
+names(ci) <- c("2.5%", "Estimate", "97.5%")
+ci <- 1 - ci
+ci
+```
+
+For a fish that was housed in a hopper type that was water-filled compared to dry, there is an expected decrease by 29.4% to 20.5% in odds of death after 18 days post-catch.
+
+### 4. How does the effect of hopper type on survival vary with fish characteristics and sea conditions?
+
+Introduce interaction term with hopper type and fish characteristics and sea conditions.
+
+```{r}
+fish_survival_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Temp_water + Wave_height + Haul_duration + Substrate + Length), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_interaction_model)
+```
+For evaluating interaction terms, we look at the p-values for the coefficients of interest. Large p-values; greater than 0.05 for `Hopper`, `Hopper:Sea condition` and `Hopper:fish characteristics` coefficients indicate there is insignificant evidence to suggest that estimates for `Hopper` vary with fish characteristics and sea conditions.
+
+### 5. To what extent would measuring vitality class (which is rapid and simple) be a good substitute for measuring actual fish survival (which is slow and expensive)?
+
+Fit a model for `Vitality_class` on fish survival. We include `Hopper` and `Trip_ID` as confounders.
+
+```{r}
+test_model <- glm(Dead ~ Vitality_class + Hopper + Trip_ID - 1, family = binomial(link = "logit"), data = hopper) 
+summary(test_model)
+```
+
+High p-values for across the board for `Vitality_class` levels suggest a strong relationship between vitality class and fish survival, low p-values for `Hopper` and `Trip_ID` suggest weak direct relationship between these covariates and fish survival. 
+
+- INSERT STACKED BAR CHART
+
+Good predictor, high p-values
+
+### Discussions
+
+- Sampling based on length, possible confounder?
+- putting them in a tank could be problematic
+- Experiment
+
