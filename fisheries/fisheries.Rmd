@@ -41,10 +41,16 @@ hopper <- hopper %>%
 
 #### Plots
 
-```{r}
-
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(hopper, aes(fill=factor(Dead, levels = c(0, 1), labels = c("Survived", "Dead")), x=Hopper)) + 
+    geom_bar(position="fill") +
+    scale_fill_manual(values = c("Survived" = "#28A745", "Dead" = "#DC3545")) + 
+    scale_y_continuous(labels = function(x) paste0(x * 100, "%")) +
+    labs(x = "Hopper Type", y = "Percentage", title = "Percentage Survived and Dead Fish vs Hopper Type", fill = "Condition") +
+    theme_minimal()
 ```
 
+The average percentage of fish survival across all conditions seem to be less than 25%, with a slight increase in percentage of fish survival when fish are housed in a water-filled hopper. We must model with adjustments.
 
 ### 1. Which variables are potential confounders for the effect of hopper type on fish survival?
 
@@ -60,7 +66,7 @@ table(hopper$Trip_ID, hopper$Hopper)
 
 For a covariate to be a mediator of `Hopper` on fish survival (`Dead`), `Hopper` needs to cause an effect on the covariate which in turn causes an effect on fish survival. Here are plausible mediators:
 
-#### Vitality_class
+#### `Vitality Class`
 
 ```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
 ggplot(hopper, aes(fill=Hopper, x=Vitality_class)) + 
@@ -80,13 +86,53 @@ ggplot(hopper, aes(fill=factor(Dead, levels = c(0, 1), labels = c("Survived", "D
     theme_minimal()
 ```
 
-The stacked barplots show whether the fish is put in a dry or in water-filled hopper should have an effect on it's vitality grade. The given vitality class also has an effect on the fish survival.
+The stacked barplots show whether the fish is put in a dry or in water-filled hopper should have an effect on it's vitality grade. The given vitality class also has an effect on the fish survival 18 days after being housed in a tank.
 
-- Processing_time: the time it takes for the fish from on boarding to storage tanks will differ if they were housed in dry or water-filled hoppers, a longer processing time could result in a lower fish survival.
+#### `Processing Time`
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+medians <- hopper %>%
+  group_by(Hopper) %>%
+  summarize(median_time = median(Processing_time))
+
+ggplot(hopper, aes(x = Processing_time, fill = factor(Hopper, labels = c("Dry", "Water Filled")))) + 
+  geom_density(alpha = 0.8) +  # Density plots with transparency
+  geom_vline(data = medians, aes(xintercept = median_time), 
+             color = "black", linetype = "dashed", size = 1) +  # Add median lines
+  geom_text(data = medians, aes(x = median_time, y = 0, 
+                                label = paste("Median:", round(median_time, 2))),
+            color = "black", vjust = -1.5, hjust = 1.1) +
+  scale_fill_manual(values = c("Dry" = "#D9A800", "Water Filled" = "#007BFF")) +
+  labs(x = "Processing Time (minutes)", y = "Density", title = "Processing Time by Hopper Type") +
+  facet_wrap(~factor(Hopper, labels = c("Dry", "Water Filled")), scales = "free_y") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+medians <- hopper %>%
+  group_by(Dead) %>%
+  summarize(median_time = median(Processing_time))
+
+ggplot(hopper, aes(x = Processing_time, fill=factor(Dead, levels = c(0, 1), labels = c("Survived", "Dead")))) + 
+  geom_density(alpha = 0.8) +  # Density plots with transparency
+  geom_vline(data = medians, aes(xintercept = median_time), 
+             color = "black", linetype = "dashed", size = 1) +  # Add median lines
+  geom_text(data = medians, aes(x = median_time, y = 0, 
+                                label = paste("Median:", round(median_time, 2))),
+            color = "black", vjust = -1.5, hjust = 1.1) +
+  scale_fill_manual(values = c("Survived" = "#28A745", "Dead" = "#DC3545")) +
+  labs(x = "Processing Time (minutes)", y = "Density", title = "Processing Time by Survival Status") +
+  facet_wrap(~factor(Dead, labels = c("Survived", "Dead")), scales = "free_y") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+There appears to be a slight trend; however, we still include `Processing_time` as a mediator between `Hopper` and fish survival. The time it takes for a fish to move from onboarding to storage tanks varies depending on whether they are placed in dry or water-filled hoppers. On average, water-filled hoppers require slightly more time to process fish from the hopper to the tanks compared to dry hoppers. Longer processing times are expected to lead to lower fish survival rates, as demonstrated in the plot above.
 
 ### 3. Estimate the effect of hopper type on survival.
 
-We make effort to exclude `Vitality_class` and `Processing_time`to explain the causal effects `Hopper` on fish survival as they are potential mediators for `Hopper` on fish survival. We don't need to include environmental conditions, haul duration or fish length as based on the causal diagram, these are XX by adding in `Trip_ID` into the model.
+We make effort to exclude `Vitality_class` and `Processing_time`to explain the causal effects `Hopper` on fish survival as they are potential mediators for `Hopper` on fish survival. We don't need to include environmental conditions, haul duration or fish length as based on the causal diagram. We add `Trip_ID` into the model as that is the only confounder of `Hopper` on fish survival.
 
 ```{r}
 fish_survival_model <- glm(Dead ~ Hopper + Trip_ID, family = binomial(link = "logit"), data = hopper) 
@@ -111,13 +157,34 @@ For a fish that was housed in a hopper type that was water-filled compared to dr
 
 ### 4. How does the effect of hopper type on survival vary with fish characteristics and sea conditions?
 
-Introduce interaction term with hopper type and fish characteristics and sea conditions.
+Introduce interaction term with hopper type and fish characteristics and sea conditions. Explore interaction terms one at a time as it could be too overwhelming to do all at once.
 
 ```{r}
-fish_survival_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Temp_water + Wave_height + Haul_duration + Substrate + Length), family = binomial(link = "logit"), data = hopper) 
-summary(fish_survival_interaction_model)
+fish_survival_hopper_temp_water_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Temp_water), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_hopper_temp_water_interaction_model)
 ```
-For evaluating interaction terms, we look at the p-values for the coefficients of interest. Large p-values; greater than 0.05 for `Hopper`, `Hopper:Sea condition` and `Hopper:fish characteristics` coefficients indicate there is insignificant evidence to suggest that estimates for `Hopper` vary with fish characteristics and sea conditions.
+
+```{r}
+fish_survival_hopper_wave_height_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Wave_height), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_hopper_wave_height_interaction_model)
+```
+
+```{r}
+fish_survival_hopper_depth_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Depth), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_hopper_depth_interaction_model)
+```
+
+```{r}
+fish_survival_hopper_substrate_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Substrate), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_hopper_substrate_interaction_model)
+```
+
+```{r}
+fish_survival_hopper_length_interaction_model <- glm(Dead ~ Trip_ID + Hopper*(Length), family = binomial(link = "logit"), data = hopper) 
+summary(fish_survival_hopper_length_interaction_model)
+```
+
+For evaluating interaction terms, we look at the p-values for the coefficients of interest. Large p-values; greater than 0.05 for `Hopper:Temp_water`, `Hopper:Wave_height`, `Hopper:Depth`, `Hopper:Substrate`, and `Hopper:Length` (of fish) coefficients indicate there is insignificant evidence to suggest that estimates for `Hopper` vary with fish characteristics and sea conditions.
 
 ### 5. To what extent would measuring vitality class (which is rapid and simple) be a good substitute for measuring actual fish survival (which is slow and expensive)?
 
@@ -138,5 +205,5 @@ Good predictor, high p-values
 
 - Sampling based on length, possible confounder?
 - putting them in a tank could be problematic
-- Experiment
+- In general fishing results in low survival rates of fish
 
