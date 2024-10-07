@@ -1,0 +1,17 @@
+## STATS 763: Lab 9: Exams and Schools
+#### Tarin Eccleston
+#### 07/10/2024
+
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+library(tidyverse)
+library(lubridate)
+library(broom)
+```
+
+```{r}
+exams <- read.csv("data/exams.csv")
+# drop data with NAs
+exams <- exams %>%
+  drop_na()
+```
+
