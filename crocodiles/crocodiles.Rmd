@@ -2,17 +2,33 @@
 #### Tarin Eccleston
 #### 07/10/2024
 
-```{r}
+```{r results='hide', warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
 library(tidyverse)
 library(broom)
 library(dagitty)
+source("libs/lib.R")
 set.seed(123)
 ```
 
+The file `bitey.txt` contains information on size, jaw shape, bite force, and tooth pressure for all currently existing species of crocodilians (crocodiles, alligators, and closely related reptiles).
+
+In these variable names, the "molariform" teeth are at the back of the jaw where food is chewed and the "caniniform" teeth at the front of the jaw where food is initially seized.  The 'rostrum' is the snout.  
+
 ### Data Manipulation
 
-```{r}
+```{r warning=FALSE}
 crocs <- read.table("data/bitey.txt", header=TRUE, fill=TRUE)
-
+# remove observations with missing species
+crocs <- crocs[!(crocs$Species == "" | crocs$Species == "-"), ]
+# split all cols with ranges to lower and upper
+crocs <- split_ranges_automatically(crocs)
+# todo: replace hyphen with NA
 ```
 
+### 1) What are the relationships between the size of the crocodilian and the bite force?
+
+### 2) What are the relationships between the size of the crocodilian and the tooth pressure?
+
+### 3) Fit a model to predict bite force from the size, shape, and mass measurements
+
+### 4) The largest and smallest crocodilians in the fossil record have total length and estimated mass (0.8m, 2.6kg: Procaimanoidea kayi, Alligatoridea) and (11m, 4600kg: Deinosuchus riograndensis, Alligatoridea). Estimate their bite force. 
