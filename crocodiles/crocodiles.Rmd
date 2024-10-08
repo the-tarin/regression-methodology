@@ -22,12 +22,63 @@ crocs <- read.table("data/bitey.txt", header=TRUE, fill=TRUE)
 crocs <- crocs[!(crocs$Species == "" | crocs$Species == "-"), ]
 # split all cols with ranges to lower and upper
 crocs <- split_ranges_automatically(crocs)
-# todo: replace hyphen with NA
+# convert em-dashes to NA
+crocs <- crocs %>%
+  mutate(across(everything(), ~na_if(as.character(.), "—")))
+# convert everything to numeric
+crocs <- crocs %>%
+  mutate(across(everything(), ~as.numeric(.)))
 ```
 
 ### 1) What are the relationships between the size of the crocodilian and the bite force?
 
+We assume the size is represented by the mean total length `MTL`. We take the mean of measured covariates rather than upper or lower of ranges.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(MBF))) +
+  geom_point() +
+  labs(title = "Mean Total Length vs Molariform Bite Forces",
+       x = "Mean Total Length (cm)",
+       y = "Molariform Bite Forces (N)") +
+  theme_minimal()
+```
+
+Increasing mean total length `MTL` of the crocodile appears to increase the molariform bite forces `MBF`. 
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(CBF))) +
+  geom_point() +
+  labs(title = "Mean Total Length vs Estimated Taxon Representative Caniniform Bite Force",
+       x = "Mean Total Length (cm)",
+       y = "Estimated Taxon Representative Caniniform Bite Force (N)") +
+  theme_minimal()
+```
+
+The estimated taxon representative caniniform bite force, `CBF`, is lower on average than the molariform bite force. The `CBF` is estimated from the molariform bite force, hence correlated.
+
 ### 2) What are the relationships between the size of the crocodilian and the tooth pressure?
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(MP))) +
+  geom_point() +
+  labs(title = "Mean Total Length vs Taxon Representative Molariform Pressure",
+       x = "Mean Total Length (cm)",
+       y = "Taxon Representative Molariform Pressure (MPa)") +
+  theme_minimal()
+```
+
+Similarly, increasing mean total length `MTL` of the crocodile appears to increase the Taxon Representative Molariform Pressure `MP`. 
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(CP))) +
+  geom_point() +
+  labs(title = "Mean Total Length vs Taxon Representative Caniniform Pressure",
+       x = "Mean Total Length (cm)",
+       y = "Taxon Representative Caniniform Pressure (MPa)") +
+  theme_minimal()
+```
+
+We can see a similar relationship for the Taxon Representative Caniniform Pressure `CP`.
 
 ### 3) Fit a model to predict bite force from the size, shape, and mass measurements
 
