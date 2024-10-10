@@ -20,66 +20,161 @@ In these variable names, the "molariform" teeth are at the back of the jaw where
 crocs <- read.table("data/bitey.txt", header=TRUE, fill=TRUE)
 # remove observations with missing species
 crocs <- crocs[!(crocs$Species == "" | crocs$Species == "-"), ]
-# split all cols with ranges to lower and upper
-crocs <- split_ranges_automatically(crocs)
 # convert em-dashes to NA
 crocs <- crocs %>%
   mutate(across(everything(), ~na_if(as.character(.), "—")))
-# convert everything to numeric
+# convert non-range numeric values to numeric
 crocs <- crocs %>%
-  mutate(across(everything(), ~as.numeric(.)))
+  mutate(across(c("N", "MRP", "MBM", "MTL", "MBF", "MTFR", "CBF", "CCA", "CP", "MCA", "MP"), ~as.numeric(.)))
 ```
+
+We assume:
+- "Size" means length and mass, which is represented by the mean total length `MTL` and mean body mass `MBM`
+- "Shape" is represented by the mean rostral proportion (mid-rostral width/snout length) `MRP` and mean tooth-fulcrum ratio (jaw joint-Caniniform tooth distance / jaw joint-Molariform tooth distance) `MTFR`.
+
+The standard weighted least squares can be used to deal with results that are the mean over multiple independent measurements.
 
 ### 1) What are the relationships between the size of the crocodilian and the bite force?
 
-We assume the size is represented by the mean total length `MTL`. We take the mean of measured covariates rather than upper or lower of ranges.
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = MTL, y = MBF)) +   
+  geom_point() +   
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE, color = "blue") +
+  labs(title = "Mean Total Length vs Molariform Bite Forces",       
+       x = "Mean Total Length (cm)",       
+       y = "Molariform Bite Forces (N)") +   
+  theme_minimal()
+```
+
+Increasing mean total length `MTL` of crocodiles appears to increase the molariform bite forces `MBF`. There seems to be a weak quadratic trend.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
-ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(MBF))) +
+ggplot(crocs, aes(x = MBM, y = MBF)) +
   geom_point() +
-  labs(title = "Mean Total Length vs Molariform Bite Forces",
-       x = "Mean Total Length (cm)",
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
+  labs(title = "Mean Body Mass vs Molariform Bite Forces",
+       x = "Mean Body Mass (kg)",
        y = "Molariform Bite Forces (N)") +
   theme_minimal()
 ```
 
-Increasing mean total length `MTL` of the crocodile appears to increase the molariform bite forces `MBF`. 
+Increasing mean body mass `MBM` of crocodiles appears to increase the molariform bite forces `MBF`. There seems to be a strong linear trend.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
-ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(CBF))) +
+ggplot(crocs, aes(x = MTL, y = CBF)) +
   geom_point() +
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = FALSE, color = "blue") +
   labs(title = "Mean Total Length vs Estimated Taxon Representative Caniniform Bite Force",
        x = "Mean Total Length (cm)",
        y = "Estimated Taxon Representative Caniniform Bite Force (N)") +
   theme_minimal()
 ```
 
-The estimated taxon representative caniniform bite force, `CBF`, is lower on average than the molariform bite force. The `CBF` is estimated from the molariform bite force, hence correlated.
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = MBM, y = CBF)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
+  labs(title = "Mean Body Mass vs Estimated Taxon Representative Caniniform Bite Force",
+       x = "Mean Body Mass (kg)",
+       y = "Estimated Taxon Representative Caniniform Bite Force (N)") +
+  theme_minimal()
+```
+
+The same relationships apply for mean total length `MTL` and mean body mass `MBM` on estimated taxon representative caniniform bite force `CBF`. `CBF`, is lower on average than the molariform bite force. The `CBF` is calculated from the molariform bite force using other parameters, hence they are correlated.
 
 ### 2) What are the relationships between the size of the crocodilian and the tooth pressure?
 
 ```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
-ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(MP))) +
+ggplot(crocs, aes(x = MTL, y = MP)) +
   geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
   labs(title = "Mean Total Length vs Taxon Representative Molariform Pressure",
        x = "Mean Total Length (cm)",
        y = "Taxon Representative Molariform Pressure (MPa)") +
   theme_minimal()
 ```
 
-Similarly, increasing mean total length `MTL` of the crocodile appears to increase the Taxon Representative Molariform Pressure `MP`. 
+Increasing mean total length `MTL` of crocodiles appears to increase the Taxon Representative Molariform Pressure `MP`. There seems to be a linear trend.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
-ggplot(crocs, aes(x = as.numeric(MTL), y = as.numeric(CP))) +
+ggplot(crocs, aes(x = MBM, y = MP)) +
   geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
+  labs(title = "Mean Body Mass vs Taxon Representative Molariform Pressure",
+       x = "Mean Body Mass (kg)",
+       y = "Taxon Representative Molariform Pressure (MPa)") +
+  theme_minimal()
+```
+
+Increasing mean body mass `MBM` of crocodiles appears to increase the Taxon Representative Molariform Pressure `MP`. There seems to be a strong linear trend.
+
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = MTL, y = CP)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
   labs(title = "Mean Total Length vs Taxon Representative Caniniform Pressure",
        x = "Mean Total Length (cm)",
        y = "Taxon Representative Caniniform Pressure (MPa)") +
   theme_minimal()
 ```
 
-We can see a similar relationship for the Taxon Representative Caniniform Pressure `CP`.
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, class.output='centered-plot'}
+ggplot(crocs, aes(x = MBM, y = CP)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE, color = "blue") +
+  labs(title = "Mean Total Length vs Taxon Representative Caniniform Pressure",
+       x = "Mean Total Length (cm)",
+       y = "Taxon Representative Caniniform Pressure (MPa)") +
+  theme_minimal()
+```
 
-### 3) Fit a model to predict bite force from the size, shape, and mass measurements
+The same relationships apply for mean total length `MTL` and mean body mass `MBM` on taxon representative caniniform pressure `CP`, however the fitted line appears "flatter". The `CP` is calculated from `MP` using other parameters, hence they are correlated.
+
+### 3) Fit a model to predict bite force from the size, shape, and mass measurements.
+
+Since the caniniform bite force is bite principally from the molariform bite force, we predict the molariform bite force only.
+
+We first try a linear model as the molariform bite force can be a range of positive real numbers.
+
+Talk about using the mean rather than range of measurements.
+
+Talk about precision weights being sample sizes for each crocodile. Appears that lm interprets the weights as precision weights.
+
+I didn't use any ratios as they can be misleading variables.
+
+Talk about interaction effects
+
+```{r}
+sample_size <- as.numeric(crocs$N)
+bite_model_weighted <- lm(MBF ~ MTL + MBM + MRP + MTFR, weights = sample_size, data = crocs)
+summary(bite_model_weighted)
+```
+
+TODO: plots with data and fitted line
 
 ### 4) The largest and smallest crocodilians in the fossil record have total length and estimated mass (0.8m, 2.6kg: Procaimanoidea kayi, Alligatoridea) and (11m, 4600kg: Deinosuchus riograndensis, Alligatoridea). Estimate their bite force. 
+
+We can only use a model with length and mass as covariates as these are the only provided covariates for the new data. No interaction terms are used.
+
+```{r warning=FALSE}
+MBF_prediction_model_weighted <- lm(MBF ~ MTL + MBM, weights = sample_size, data = crocs)
+
+smallest_largest <- data.frame(
+  MTL = c(0.8, 11),
+  MBM = c(2.6, 4600)
+)
+
+MBF_predictions <- predict(MBF_prediction_model_weighted, newdata = smallest_largest, interval = "prediction", level = 0.95)
+MBF_predictions
+```
+
+```{r warning=FALSE}
+CBF_prediction_model_weighted <- lm(CBF ~ MTL + MBM, weights = sample_size, data = crocs)
+
+CBF_predictions <- predict(CBF_prediction_model_weighted, newdata = smallest_largest, interval = "prediction", level = 0.95)
+CBF_predictions
+```
+
+Note that these crocodilians represent the largest and smallest species in the fossil record and, therefore, fall at the extreme ends of our models. We may not have sufficient predictive support for estimating their bite forces, which is why the prediction interval (especially for predicting `CBF`) includes negative values. To improve prediction, we need a better model with more comprehensive data and/or additional shape parameters from the fossil record, as discussed in question 3. 
+
+An extension could involve using more data from the Alligatoridae family, including species from the Alligator and Caiman genera, to build a more accurate predictive model, as these species are more closely related to those in the fossil record.
